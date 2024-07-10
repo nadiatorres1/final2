@@ -1,0 +1,410 @@
+---
+title: "Factores que afectaron la caìda de la confianza hacia las instituciones en Amèrica Latina y El Caribe"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+---
+
+```{r}
+library(flexdashboard)
+library(dygraphs)
+```
+
+Exploración
+===================================== 
+
+Row {data-height = 500} 
+-----------------------------------------------------------------------
+
+### ENTREGA 3: Introducción del dashboard
+
+La confianza en las instituciones es esencial para una sociedad próspera y una gobernanza efectiva, impulsando el desarrollo económico. Sin embargo, según el OCDE (2022), la confianza en las instituciones públicas es alarmantemente baja, con valores por debajo del 30%. Este dashboard se centra en identificar y analizar las variables que explican el aumento de la desconfianza institucional en América Latina y el Caribe, prestando especial atención a la desigualdad, los límites al poder gubernamental, la justicia penal y la corrupción.
+
+### Estructura
+
+```{r}
+ setwd("C:/Users/tnadi/Downloads")
+```
+
+```{r}
+library(rio)
+data=import("data_dash.xlsx")
+```
+
+```{r}
+data$desigualdad <- as.numeric(data$desigualdad)
+data$lim_legislativo <- as.numeric(data$lim_legislativo)
+data$lim_judicial <- as.numeric(data$lim_judicial)
+data$investiga <- as.numeric(data$investiga)
+data$poblacion <- as.numeric(data$poblacion)
+```
+
+```{r}
+data$país <- as.factor(data$país)
+```
+```{r}
+data$demo <- factor(data$demo, levels = c("no", "si"), labels = c("No", "Sì"))
+```
+
+```{r}
+str(data)
+```
+### Resumen
+
+```{r}
+summary(data)
+```
+
+Row {data-height = 500}
+-----------------------------------------------------------------------
+
+### Presentando la base
+
+```{r echo=FALSE}
+library(DT)
+table = data # Tabla de variables 
+datatable(table, filter = "top")
+```
+
+Esta investigaciòn gira alrededor de una variable dependiente: porc_confi, que representa al nivel de confianza en las instituciones. La poblaciòn tomada para realizar el estudio son los ciudadanos de Amèrica Latina y El Caribe, que concentra una de las secciones màs bajas de las estadìsticas realizadas por la OCDE. La variable paìs describe cada una de estas 17 regiones.
+
+Por otro lado, la variable demo es del tipo categòrica y evalùa si determinado paìs obedece a un règimen democràtico o no, por lo que està subdividida en esos dos niveles. "indice_corrup" representa el ìndice de corrupciòn percibida, que parece ser en una primera hipòtesis la variable con una mayor correlaciòn a la dependiente. "investiga" mide el nivel de investigaciones efectivas en la justicia penal, mientras que "desigualdad" corresponde a la divergencia entre lo urbano y lo rural de cada regiòn. Finalmente, tanto lim_legislativo como lim_judicial representan los lìmites al poder gubernamental desde distintos ejes en forma de ìndice.
+
+La variable dependiente
+===================================== 
+
+Row {data-height=500} 
+-----------------------------------------------------------------------
+
+### Anàlisis univariado de la variable dependiente
+
+Notamos que la distribuciòn de los valores en la variable dependiente puede estar sesgada, dado la posiciòn de la mediana en el boxplot. Ademàs, existe la presencia de algùn valor atìpico, que puede explicarse en la diferencia de densidad poblacional entre la regiòn de Amèrica Latina y los paìses del Caribe.
+
+### Nivel de confianza en las instituciones
+
+```{r}
+df2 <- data[, c(1:8)]  
+row.names(df2)= data$paìs
+
+library(ggplot2)
+
+ggplot(df2, aes(x = "", y = porc_confi)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  ylim(0, 70) + 
+  labs(title = "Nivel de confianza en las instituciones", x = "Paìs", y = "Valor")
+```
+
+Row {data-height=500} 
+-----------------------------------------------------------------------
+
+### Descripción de las correlaciones
+
+De primera, podrìamos decir que la correlaciòn con las variables no es muy fuerte. Sin embargo, determinadas variables como el ìndice de corrupciòn y las investigaciones efectivas muestran una tendencia màs fuerte y positiva, tal vez comprobando nuestra primera hipòtesis.
+
+### Matriz de correlaciones
+
+```{r}
+#str(df2)  
+```
+```{r}
+library(dplyr)
+df2 <- df2 %>% mutate_if(is.character, as.numeric) %>% mutate_if(is.factor, as.numeric)
+```
+
+```{r}
+#str(df2)
+```
+```{r}
+numCols <- sapply(df2, is.numeric)
+numXs <- df2[, numCols]
+
+```
+
+```{r}
+library(ggcorrplot)
+ggcorrplot(cor(numXs), lab = TRUE, show.diag = FALSE)
+```
+
+Modelos de regresión
+===================================== 
+
+Row {data-height=200} 
+-----------------------------------------------------------------------
+
+
+### Modelo de regresión lineal múltiple (Gauss)
+
+Se elige este modelo porque la variable que estamos analizando, porc_confi, es numérica y continua. En consecuencia, se desarrollarán dos modelos que luego serán evaluados en comparación entre sí.
+
+Row {data-height=400} 
+-----------------------------------------------------------------------
+
+### MODELO 1 
+
+```{r}
+modelo1 = formula(porc_confi~indice_corrup + poblacion)
+
+reg1 = lm(modelo1,data=data)
+
+library(modelsummary)
+model1 = list('apropiacion (I)'=reg1)
+modelsummary(model1, title = "Regresiòn: modelo 1",
+             stars = TRUE,
+             output = "kableExtra")
+```
+### Interpretación del modelo 1
+
+Hipótesis: El nivel de confianza en las instituciones es afectado por el indice de corrupciòn percibida en cada paìs, controlado por la población total.
+
+Al probar la hipòtesis comprobamos que:
+
+1.  Un cambio de una unidad en indice_corrup se asocia con un cambio promedio de 0.309 unidades en apropiacion.
+
+3. Pese a lo anterior, la variable indice_corrup no es significativa.
+
+2. El R² y R² Ajustado indican que el modelo explica aproximadamente el 17.1% de la variabilidad en apropiacion, con una ligera mejora sobre un modelo sin variables independientes.
+
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+
+### MODELO 2
+
+```{r}
+modelo2=formula(porc_confi~indice_corrup + investiga + poblacion)
+
+reg2=lm(modelo2,data=data)
+
+library(modelsummary)
+model2=list('apropiacion (I)'=reg2)
+modelsummary(model2, title = "Regresion: modelo 2",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+### Interpretación del modelo 2
+
+Hipotesis: El nivel de confianza en las instituciones es afectado por el indice de corrupciòn percibida y el nivel de investigaciones efectivas en cada paìs, controlado por la población total.
+
+Observamos:
+
+1.  Un cambio de una unidad en investiga se asocia con un cambio promedio de 23.794 unidades en apropiacion.
+
+2. La variable investiga no es significativa.
+
+3. El R² y R² Ajustado indican que el modelo explica aproximadamente el 20.7% de la variabilidad en apropiacion, aunque con un ajuste muy limitado.
+
+4. La variable dependiente deja de ser significativa cuando se le agrega esta variable, por lo que no es el mejor modelo.
+
+
+Comparación de modelos
+===================================== 
+
+Row {data-height=600} 
+-----------------------------------------------------------------------
+
+### Resumen de modelos
+
+```{r}
+models=list('apropiacion (I)'=reg1,
+            'apropiacion (II)'=reg2)
+modelsummary(models, title = "Resultados de todos los modelos",
+             stars = TRUE,
+             output = "kableExtra")
+```
+
+### Comparación de efectos
+
+```{r}
+library(ggplot2)
+library(sjPlot)
+
+
+plot_models(reg1,reg2,vline.color = "black", m.labels=c("Modelo 1","Modelo 2"),dot.size = 1,line.size = 0.6)
+```
+
+Row {data-height=400} 
+-----------------------------------------------------------------------
+
+### Comparación modelos
+
+```{r}
+library(kableExtra)
+library(magrittr)
+library(knitr)
+tanova=anova(reg1,reg2)
+
+kable(tanova,
+      caption = "Tabla ANOVA para comparar modelos")%>%kableExtra::kable_styling()
+```
+
+### Anàlisis
+
+Basado en los resultados de la prueba ANOVA, no hay diferencia significativa entre los dos modelos en términos de ajuste y capacidad para explicar la varianza en la variable dependiente. Ambos modelos tienen un desempeño similar según el estadístico F y el valor p asociado. Teniendo esto en cuenta, si notamos que el primer modelo tiene un AIC menor que el del segundo modelo, podemos considerarlo como mejor.
+
+Aùn asì, ningùn modelo resultò significativo por lo que no se puede argumentar que el ìndice de corrupciòn percibida ni el nivel de investigaciones tengan un efecto proporcionalmente directo a la caìda de la confianza en las instituciones en ALC.
+
+Clusters: PAM
+===================================== 
+
+```{r}
+#cor(df2[,c(1:8)])
+```
+
+```{r}
+#names(df2)
+```
+
+```{r}
+#library(ggcorrplot)
+#ggcorrplot(cor(df2[,c(1,2,4,5,6,7,8)]))
+```
+
+```{r, echo = FALSE}
+dataClus=df2[,c(1,2)]
+row.names(dataClus)=df2$país
+```
+
+```{r, echo = FALSE}
+library(cluster)
+g.dist = daisy(dataClus, metric="gower")
+```
+
+Row {data-height=800}
+-----------------------------------------------------------------------
+
+### PAM: Número de clusters
+
+```{r}
+library(factoextra)
+fviz_nbclust(dataClus, pam,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F)
+```
+
+```{r}
+library(kableExtra)
+set.seed(123)
+res.pam=pam(g.dist,2,cluster.only = F)
+
+dataClus$pam=res.pam$cluster
+
+head(dataClus,15)%>%kbl()%>%kable_styling()
+```
+
+### PAM: Clusterizaciòn 
+
+```{r}
+fviz_silhouette(res.pam, print.summary = FALSE)
+```
+
+### Paìses mal clusterizados
+
+```{r}
+silPAM=data.frame(res.pam$silinfo$widths)
+silPAM$país=row.names(silPAM)
+poorPAM=silPAM[silPAM$sil_width<0,'País']%>%sort()
+poorPAM
+```
+
+Row {data-height=200}
+-----------------------------------------------------------------------
+
+Se recomendó utilizar un único clúster para el análisis, pero debido a los objetivos de la investigación, se optó por utilizar dos. Posteriormente, no se identificó ningún país que estuviera agrupado incorrectamente.
+
+Clusters: AGNES
+===================================== 
+
+Row {data-height=800} 
+-----------------------------------------------------------------------
+
+
+### AGNES: Número de clusters
+
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "agnes")
+```
+
+
+```{r, echo=FALSE}
+library(dplyr)
+library(kableExtra)
+set.seed(123)
+library(factoextra)
+
+res.agnes<- hcut(g.dist, k = 2,hc_func='agnes',hc_method = "ward.D")
+
+dataClus$agnes=res.agnes$cluster
+
+
+#head(dataClus,15)%>%kbl()%>%kable_styling()
+```
+
+
+### AGNES: Clusterización
+
+```{r}
+fviz_silhouette(res.agnes,print.summary = F)
+```
+
+
+### Paìses mal clusterizados
+
+```{r}
+silAGNES=data.frame(res.agnes$silinfo$widths)
+silAGNES$país=row.names(silAGNES)
+poorAGNES=silAGNES[silAGNES$sil_width<0,'Paìses']%>%sort()
+poorAGNES
+```
+Row {data-height=50} 
+-----------------------------------------------------------------------
+
+Esta vez, AGNES sugiere 2 clusters para el anàlisis. En la bùsqueda de agrupaciones mal clusterizadas, nuevamente, no se encuentra ninguna.
+
+Clusters: DIANA
+===================================== 
+
+Row {data-height=800}
+-----------------------------------------------------------------------
+
+### DIANA: Número de clusters
+
+```{r}
+fviz_nbclust(dataClus, hcut,diss=g.dist,method = "gap_stat",k.max = 10,verbose = F,hc_func = "diana")
+```
+
+
+
+```{r}
+set.seed(123)
+res.diana <- hcut(g.dist, k = 2,hc_func='diana')
+dataClus$diana=res.diana$cluster
+
+#head(dataClus,15)%>%kbl%>%kable_styling()
+```
+
+
+### DIANA: Clusterización
+
+```{r}
+fviz_silhouette(res.diana,print.summary = F)
+```
+
+
+### Provincias mal clusterizadas
+
+```{r}
+silDIANA=data.frame(res.diana$silinfo$widths)
+silDIANA$país=row.names(silDIANA)
+poorDIANA=silDIANA[silDIANA$sil_width<0,'Paìses']%>%sort()
+poorDIANA
+```
+
+Row {data-height=50}
+-----------------------------------------------------------------------
+
+El nùmero de clusters sugeridos por  Diana es 2. Nuevamente, no encuentra valores perdidos pero la clusterizaciòn es buena y empata con Agnes.
+
+
+Row {data-height=50}
+-----------------------------------------------------------------------
+
+Sìntesis: Ya que la mejor clusterizaciòn se encuentra entre Agnes y Diana, cualquiera de estos modelos serà el mejor. Ambos tienen nulos valores perdidos y ademàs, no hay diferencia sus Silhouette width.
